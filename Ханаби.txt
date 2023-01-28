@@ -1,0 +1,232 @@
+Game a = new();
+class Game
+{
+    public Game()
+    {
+        Table a = new Table();
+        bool game = true, m = false;
+        int choise;
+        Console.Write("Включить риск(true)? по умолчанию выключен(нажми чё угодно): ");
+        if (bool.TryParse(Console.ReadLine(), out bool r) && r == true) m = true;
+        a.Print_start();
+        while (game && a.card_on_the_table < 25 && a.Get_deck())
+        {
+            Console.Write("\n\nWhat do yo do:\nИграть картой - 1,\nСбросить карту - 2, \nПодсказать сидящему напротив цвет - 3, \nили номинал - 4.\nНе буду идти дальше, пока не введёшь корректно: ");
+            while (true)
+            {
+                if (int.TryParse(Console.ReadLine(), out choise) && choise > 0 && choise < 5) break;
+                else Console.WriteLine("Нет");
+            }
+            switch (choise)
+            {
+                case 1: game = a.Play_card(m); break;
+                case 2: game = a.Drop_card(m); break;
+                case 3: game = a.Tell_color(m); break;
+                case 4: game = a.Tell_dost(m); break;
+            }
+        }
+        if (!m) a.risk = 0;
+        Console.WriteLine($"Turn: {a.turn}, cards: {a.card_on_the_table}, with risk: {a.risk}");
+    }
+}
+class Table
+{
+    Card[]? player1 = new Card[5];
+    Card[]? player2 = new Card[5];
+    bool who_play = true;
+    static Card[]? cards;
+    Card table = new Card(Card.color.o, 0);
+    public int card_on_the_table { get; private set; }
+    public int turn { get; private set; }
+    internal int risk { get; set; }
+
+    public Table()
+    {
+        Console.Write("Количество карт в игре (минимум 11, максимум 35): ");
+        int deck;
+        while (true)
+        {
+            if (int.TryParse(Console.ReadLine(), out deck) && deck > 10 && deck < 36) { deck = deck - 10; cards = new Card[deck]; break; }
+            else Console.WriteLine("Tcho? It isn't correct");
+        }
+        for (int i = 0; i < 5; i++)
+        {
+            player1[i] = new Card();
+            player2[i] = new Card();
+        }
+        for (int i = 0; i < deck; i++)
+        {
+            cards[i] = new Card();
+        }
+        turn = 0;
+        risk = 0;
+        card_on_the_table = 0;
+    }
+    public bool Get_deck()
+    {
+        if (cards.Length == 0) return false;
+        else return true;
+    }
+    public void Print_start()
+    {
+        Console.Write("\n\nStart new game with deck ");
+        for (int i = 0; i < 5; i++) Console.Write(player1[i].Color.ToString() + player1[i].Dost.ToString() + " ");
+        for (int i = 0; i < 5; i++) Console.Write(player2[i].Color.ToString() + player2[i].Dost.ToString() + " ");
+        for (int i = cards.Length - 1; i >= 0; i--) Console.Write(cards[i].Color.ToString() + cards[i].Dost + " ");
+        Console.Write("\n\n");
+    }
+    public bool Drop_card(bool m = false, int s = 0, bool _do = true)
+    {
+        turn++;
+        while (_do)
+        {
+            Console.Write("Drop card ");
+            if (int.TryParse(Console.ReadLine(), out s) && s >= 0 && s <= 4) break;
+            else if(!(int.TryParse(Console.ReadLine(), out s) && s >= 0 && s <= 4) && !m) Console.WriteLine("Tcho? It isn't correct\t");
+            else return false;
+        }
+        ref Card[] player = ref who_play ? ref player1 : ref player2;
+
+        player[s] = cards[cards.Length - 1];// Карта стала на пустое место в веер игроку
+
+        Card temp = new(Card.color.o, 0);
+        for (int i = s; i < 4; i++)
+        {
+            temp.Color = player[i].Color;
+            temp.Dost = player[i].Dost;
+
+            player[i].Color = player[i + 1].Color;
+            player[i].Dost = player[i + 1].Dost;
+
+            player[i + 1].Color = temp.Color;
+            player[i + 1].Dost = temp.Dost;
+        }// Карта в конце веера
+
+        Array.Resize(ref cards, cards.Length - 1); //Удаляем карту из колоды
+        return Get_deck();
+    }
+    public bool Play_card(bool m = false)
+    {
+        ref Card[] player = ref who_play ? ref player1 : ref player2;
+        while (true)
+        {
+            Console.Write("Play card ");
+            if (int.TryParse(Console.ReadLine(), out int s) && s >= 0 && s <= 4)
+            {
+                while (true)
+                {
+                    if (table.Dost == 0 || player[s].Dost == 1 || (player[s].Color == table.Color && player[s].Dost == table.Dost + 1))
+                    {
+                        table.Dost = player[s].Dost;
+                        table.Color = player[s].Color;
+                        card_on_the_table++;
+                        //Карта на столе
+                        Drop_card(m, s, false);
+                        who_play = !who_play;
+                        if (!player[s].k_Color && !player[s].k_Dost || card_on_the_table != 1) risk++;
+                        return true;
+                    }
+                    else if (!m){ Console.WriteLine("Tcho? It isn't correct\t"); break; }
+                    else return false;
+                }
+            }
+            else if (!(int.TryParse(Console.ReadLine(), out s) && s >= 0 && s <= 4) && !m) { Console.WriteLine("Tcho? It isn't correct\t"); return false; }
+            else return false;
+        }
+        return Get_deck();
+    }
+    public bool Tell_color(bool m = false)
+    {
+        turn++;
+        ref Card[] player = ref who_play ? ref player2 : ref player1;
+        while (true)
+        {
+            Console.Write("Какой цвет ты хочешь подсказать, что есть у игрока напротив (R,G,B,Y,W): ");
+            string temp = Console.ReadLine();
+            bool check = true;
+            if (Enum.TryParse(temp.ToUpper(), out Card.color a))
+            {
+                for (int i = 0; i < player.Length+1; i++)
+                {
+                    if (player[i].Color == a)
+                    {
+                        check = false;
+                        Console.Write("Tell color " + a + " for cards ");
+                        for (int i1 = i; i1 < player.Length; i1++)
+                        {
+                            if (player[i1].Color == a)
+                            {
+                                player[i1].k_Color = true;
+                                Console.Write(i1 + " ");
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }
+            if (check && !m)
+            {
+                Console.WriteLine("Не обманывай меня!!!\n");
+                return true;
+            }
+            else if (check && m) return false;
+        }
+    }
+    public bool Tell_dost(bool m = false)
+    {
+        turn++;
+        ref Card[] player = ref who_play ? ref player2 : ref player1;
+        while (true)
+        {
+            Console.Write("Какое достоинство ты хочешь подсказать, что есть у игрока напротив (1,2,3,4,5): ");
+            string temp = Console.ReadLine();
+            bool check = true;
+            if (int.TryParse(temp.ToUpper(), out int a))
+            {
+                for (int i = 0; i < player.Length; i++)
+                {
+                    if (player[i].Dost == a)
+                    {
+                        check = false;
+                        Console.Write("Tell rang " + a + " for cards ");
+                        for (int i1 = i; i1 < player.Length; i1++)
+                        {
+                            if (player[i1].Dost == a)
+                            {
+                                player[i1].k_Dost = true;
+                                Console.Write(i1 + " ");
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }
+            if (check && !m)
+            {
+                Console.WriteLine("Не обманывай меня!!!\n");
+                return true;
+            }
+            else if (check && m) return false;
+        }
+    }
+}
+class Card {
+
+    internal enum color { R, G, B, Y, W, o }
+    public color Color { get; internal set; }
+    public int? Dost { get; internal set; }
+    internal bool k_Color = false;
+    internal bool k_Dost = false;
+
+    public Card()
+    {
+        Random r = new();
+        Color = (color)r.Next(5);
+        Dost = r.Next(1,6);
+    }
+    internal Card(color color, int? dost)
+    {
+        Color = color;
+        Dost = dost;
+    }
+}
